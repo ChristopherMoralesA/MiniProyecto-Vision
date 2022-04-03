@@ -197,7 +197,7 @@ def main():
     folder_path = os.path.join(path, folder)
     files = os.listdir(folder_path)
     for file in files:
-        file_path = os.path.join(path + r'/Objetos_por_analizar', file)
+        file_path = os.path.join(folder_path, file)
         foto = io.imread(file_path)
         foto_bin= binarize(io.imread(file_path,True))
         plt.imshow(foto)
