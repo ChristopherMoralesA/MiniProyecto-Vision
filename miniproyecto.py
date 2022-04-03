@@ -6,9 +6,6 @@ from skimage import io
 from skimage.filters import threshold_otsu
 from skimage.transform import resize
 
-#Obtener la direccion de las imagenes
-path = os.getcwd()
-
 def rgba2rgb( rgba, background=(255,255,255) ):
     row, col, ch = rgba.shape
     if ch == 3:
@@ -141,7 +138,7 @@ def segmentacion_agujeros(bin_image):
     out_img = region_growth(mid,seed_colors['mid'],bin_image,out_img)
     res_agujeros = agujeros(out_img,seed_colors)
     plt.imshow(out_img)
-    plt.title("Imagen")
+    plt.title("Agujeros Segmentados")
     plt.show()
     return res_agujeros
 
@@ -184,13 +181,28 @@ def proyecto(image,bin_image):
     res_cromatic = is_cromatic(image)
     res_agujeros = segmentacion_agujeros(bin_image)
     res_report(res_cromatic,res_agujeros)
-
+'''
 def main():
+    path = os.getcwd()
     foto= io.imread(path +r'\Rojo2FotoOg.jpeg')
     foto_bin= binarize(io.imread(path +r'\Rojo2FotoOg.jpeg',True))
     plt.imshow(foto)
     plt.title("Imagen")
     plt.show()
     proyecto(foto,foto_bin)
+'''
+def main():
+    path = os.getcwd()
+    folder = 'Objetos_por_analizar'
+    folder_path = os.path.join(path, folder)
+    files = os.listdir(folder_path)
+    for file in files:
+        file_path = os.path.join(path + r'/Objetos_por_analizar', file)
+        foto = io.imread(file_path)
+        foto_bin= binarize(io.imread(file_path,True))
+        plt.imshow(foto)
+        plt.title(file)
+        plt.show()
+        proyecto(foto,foto_bin)
 
 if __name__ == "__main__": main()
