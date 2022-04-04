@@ -115,11 +115,11 @@ def agujeros(image, seed_colors):
 
 def segmentacion_agujeros(bin_image):
     #Definicion de semillas
-    up = (120,90)
-    down = (120,240)
-    right = (180,150)  
-    left = (50,150)
-    mid = (125,150)
+    up = (120,70)
+    down = (120,250)
+    right = (200,160)  
+    left = (40,160)
+    mid = (120,160)
     #Definicion de colores para cada agujero
     up_color = [255,0,0]
     down_color = [255,128,0]
