@@ -1,6 +1,5 @@
 #Importar las librerías por utilizar
 import os
-import matplotlib.pyplot as plt
 import numpy as np
 from skimage import io
 from skimage.filters import threshold_otsu
@@ -137,32 +136,31 @@ def segmentacion_agujeros(bin_image):
     out_img = region_growth(left,seed_colors['left'],bin_image,out_img)
     out_img = region_growth(mid,seed_colors['mid'],bin_image,out_img)
     res_agujeros = agujeros(out_img,seed_colors)
-    plt.imshow(out_img)
-    plt.title("Agujeros Segmentados")
-    plt.show()
     return res_agujeros
 
 def res_report(res_cromatic,res_agujeros):
     #Resultado cromatico
-    cromatic_report = 'El objeto es no cromatico y '
+    cromatic_report = ' es no cromatico y '
     if res_cromatic == True:
-            cromatic_report = 'El objeto es cromatico y '
+            cromatic_report = ' es cromatico y '
     #Resultado de los agujeros
-    agujeros_report = 'se encontraron agujeros en las siguientes posiciones: \n'
+    agujeros_report = 'se encontraron agujeros en las siguientes posiciones:'
     if np.array_equal(res_agujeros,[False,False,False,False,False]):
         agujeros_report = 'no se encontraron agujeros.'
+        report = cromatic_report + agujeros_report
+        return report
     if res_agujeros[0]:
-        agujeros_report = agujeros_report + '   -Superior\n'
+        agujeros_report = agujeros_report + ' -Superior'
     if res_agujeros[1]:
-        agujeros_report = agujeros_report + '   -Inferior\n'
+        agujeros_report = agujeros_report + ' -Inferior'
     if res_agujeros[2]:
-        agujeros_report = agujeros_report + '   -Lateral derecho\n'
+        agujeros_report = agujeros_report + ' -Lateral derecha'
     if res_agujeros[3]:
-        agujeros_report = agujeros_report + '   -Lateral izquierdo\n'
+        agujeros_report = agujeros_report + ' -Lateral izquierda'
     if res_agujeros[4]:
-        agujeros_report = agujeros_report + '   -Central'
+        agujeros_report = agujeros_report + ' -Central'
     report = cromatic_report + agujeros_report
-    print (report)
+    return report
 
 def edit_image(image,gray=False):
     if gray == True:
@@ -180,29 +178,25 @@ def proyecto(image,bin_image):
     bin_image = edit_image(bin_image,True)
     res_cromatic = is_cromatic(image)
     res_agujeros = segmentacion_agujeros(bin_image)
-    res_report(res_cromatic,res_agujeros)
-'''
+    return (res_report(res_cromatic,res_agujeros))
+
 def main():
-    path = os.getcwd()
-    foto= io.imread(path +r'\Rojo2FotoOg.jpeg')
-    foto_bin= binarize(io.imread(path +r'\Rojo2FotoOg.jpeg',True))
-    plt.imshow(foto)
-    plt.title("Imagen")
-    plt.show()
-    proyecto(foto,foto_bin)
-'''
-def main():
+    try:
+        os.remove("report_file.txt")
+    except:
+        report_file = open("report_file.txt", "x")
+    report_file = open("report_file.txt", "x")
     path = os.getcwd()
     folder = 'Objetos_por_analizar'
     folder_path = os.path.join(path, folder)
     files = os.listdir(folder_path)
     for file in files:
+        res_report = ''
         file_path = os.path.join(folder_path, file)
         foto = io.imread(file_path)
         foto_bin= binarize(io.imread(file_path,True))
-        plt.imshow(foto)
-        plt.title(file)
-        plt.show()
-        proyecto(foto,foto_bin)
+        res_report =file + proyecto(foto,foto_bin) + '\n'
+        report_file.write(res_report)
+    report_file.close()
 
 if __name__ == "__main__": main()
