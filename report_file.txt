@@ -1,3 +1,3 @@
-Obj1.jpeg es cromatico y se encontraron agujeros en las siguientes posiciones: -Superior -Lateral derecha
-Obj2.jpeg es no cromatico y se encontraron agujeros en las siguientes posiciones: -Lateral derecha -Central
-Obj3.jpeg es cromatico y se encontraron agujeros en las siguientes posiciones: -Superior -Inferior -Lateral derecha -Lateral izquierda -Central
+IMG_001.jpg es    cromatico y hay perforaciones en las posiciones:                   Derecha          
+IMG_002.jpg es no cromatico y hay perforaciones en las posiciones: Superior Inferior                   Central
+IMG_003.jpg es    cromatico y hay perforaciones en las posiciones:                                     Central

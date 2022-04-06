@@ -5,6 +5,38 @@ from skimage import io
 from skimage.filters import threshold_otsu
 from skimage.transform import resize
 
+# 8-vecindad
+VECINDAD = [
+    (-1,-1), (-1, 0), (-1, 1),
+    ( 0,-1),          ( 0, 1),
+    ( 1,-1), ( 1, 0), ( 1, 1)]
+
+# Maxima desviacion estandar de pixeles no cromaticos
+MAX_STD=10
+
+# Minimo porcentaje de pixeles cromaticos
+MIN_CROM = 0.1  #10%
+
+# Definicion de semillas para cada agujero
+UP     = (120, 70)
+DOWN   = (120,250)
+RIGHT  = (200,160)
+LEFT   = ( 40,160)
+CENTER = (120,160)
+SEEDS  = (UP,DOWN,RIGHT,LEFT,CENTER)
+
+# Definicion de colores para cada agujero
+UP_COLOR     = (255,  0,  0)
+DOWN_COLOR   = (255,128,  0)
+RIGHT_COLOR  = (  0,204,  0)
+LEFT_COLOR   = (  0,128,255)
+CENTER_COLOR = (204,  0,102)
+SEED_COLORS  = (UP_COLOR,DOWN_COLOR,RIGHT_COLOR,LEFT_COLOR,CENTER_COLOR)
+
+# Minimo de pixeles para considerar ubicacion de agujero
+MIN_PX_PERF = 100
+
+# Convierte la imagen RGBA a RGB
 def rgba2rgb( rgba, background=(255,255,255) ):
     row, col, ch = rgba.shape
     if ch == 3:
@@ -19,9 +51,10 @@ def rgba2rgb( rgba, background=(255,255,255) ):
     rgb[:,:,2] = b * a + (1.0 - a) * B
     return np.asarray( rgb, dtype='uint8' )
 
+# Toma una imagen y determina si el objeto es cromático
 def is_cromatic(image):
     image = rgba2rgb(image)
-    rows,columns,pixel = image.shape
+    rows,columns = image.shape[:2]
     pxl_sum = rows*columns
     clr_pxl = 0
     for row in range(rows):
@@ -30,138 +63,105 @@ def is_cromatic(image):
             g = image[row][column][1]
             b = image[row][column][2]
             desvest = np.std([r,g,b])
-            if desvest > 10:
+            if desvest > MAX_STD:
                 clr_pxl += 1
-            if clr_pxl >= 0.1*pxl_sum:
+            if clr_pxl >= MIN_CROM*pxl_sum:
                 return True
     return False
 
+# Binariza una imagen (umbral default con método Otsu)
 def binarize(image,thresh=0):
     if thresh==0:
         thresh = threshold_otsu(image)
     binary = image > thresh
     return binary
 
-def region_growth(seed,seed_color,bin_img,out_img = np.zeros(shape=(320,240,3), dtype=np.uint8)):  
-    #out_img = np.zeros(shape=(img.shape), dtype=np.uint8)
+# Crea un región con una semilla y actualiza la imagen out_img
+# con la región nueva y su color específico
+def region_growth(
+    seed,seed_color,bin_img,
+    out_img = np.zeros(shape=(320,240,3), dtype=np.uint8)):  
     h, w = bin_img.shape
-    seeds = [seed]
-    #los pixeles de la imagen de saldia que representan las semillas se definen a un valor
-    for seed in seeds:
+    region = [seed]
+    # Identifica si en la semilla hay una perforacion
+    for seed in region:
         x = seed[0]
         y = seed[1]
-        #En caso de que en la imagen original el pixel que corresponde a la semilla es negro, es decir
-        #no es un agujero, no lo pinta, sino que se sale
         if bin_img[y][x] != True:
             return out_img
         out_img[y][x] = seed_color
-    #direcciones para a partir de la semilla hacer un cuadrado de la vecindad
-    directs = [(-1,-1), (0,-1), (1,-1), (1,0), (1,1), (0,1),(-1,1),(-1,0)]
-    #imagen de pixeles visitados, inicia en cero
-    visited = np.zeros(shape=(bin_img.shape), dtype=np.uint8)
-    while len(seeds):
-        seed = seeds.pop(0)
+    # imagen de pixeles visitados, evita revisitar pixeles
+    visitado = np.zeros(shape=(bin_img.shape), dtype=np.uint8)
+    # Crecimiento de la región
+    while len(region):
+        seed = region.pop(0)
         x = seed[0]
         y = seed[1]
-        # visit point (x,y)
-        visited[y][x] = 1
-        for direct in directs:
-            cur_x = x + direct[0]
-            cur_y = y + direct[1]
-            # illegal 
+        # Marca la semilla como visitada
+        visitado[y][x] = 1
+        for vecino in VECINDAD:
+            cur_x = x + vecino[0]
+            cur_y = y + vecino[1]
+            # limites de la imagen
             if cur_x <0 or cur_y<0 or cur_x >= w or cur_y >=h :
                 continue
-            # Not visited and belong to the same target 
-            #Checks actual pixel
-            if (not visited[cur_y][cur_x]) and (bin_img[cur_y][cur_x]==bin_img[y][x]) :
+            # crea nueva semilla si el pixel actual es igual a la semilla
+            # y si aun no está visitado, marca pixel actual como visitado
+            if (not visitado[cur_y][cur_x]) and (bin_img[cur_y][cur_x]==bin_img[y][x]):
                 out_img[cur_y][cur_x] = seed_color
-                visited[cur_y][cur_x] = 1
-                seeds.append((cur_x,cur_y))
+                visitado[cur_y][cur_x] = 1
+                region.append((cur_x,cur_y))
     return out_img
 
-def agujeros(image, seed_colors):
-    up_pxl = 0
-    down_pxl = 0
-    right_pxl = 0
-    left_pxl = 0
-    mid_pxl = 0
-    res = []
-    y, x, l = image.shape
-    for i in range(y):
-        for k in range(x):
-            if np.array_equal(image[i][k],seed_colors['up']):
-                up_pxl += 1
-            elif np.array_equal(image[i][k],seed_colors['down']):
-                down_pxl += 1
-            elif np.array_equal(image[i][k],seed_colors['right']):
-                right_pxl += 1
-            elif np.array_equal(image[i][k],seed_colors['left']):
-                left_pxl += 1
-            elif np.array_equal(image[i][k],seed_colors['mid']):
-                mid_pxl += 1
-    res = [up_pxl, down_pxl, right_pxl, left_pxl, mid_pxl]
+# Crea una lista booleana que indica si hay o no agujeros
+def agujeros(image):
+    ctr = [0,0,0,0,0]
+    w, h = image.shape[:2]
+    # Conteo de pixeles por agujero
+    for i in range(w):
+        for k in range(h):
+            for j in range(len(ctr)):
+                if np.array_equal(image[i][k],SEED_COLORS[j]):
+                    ctr[j] += 1
     res_agujeros = [False,False,False,False,False]
-    if res[0]>=100:
-        res_agujeros[0] = True
-    if res[1]>=100:
-        res_agujeros[1] = True
-    if res[2]>=100:
-        res_agujeros[2] = True
-    if res[3]>=100:
-        res_agujeros[3] = True
-    if res[4]>=100:
-        res_agujeros[4] = True
+    # Evaluar si hay suficientes pixeles para considerarlo agujero
+    for j in range(len(ctr)):
+        if ctr[j]>=MIN_PX_PERF:
+            res_agujeros[j] = True
     return res_agujeros
 
+# Se realiza el crecimiento de regiones para cada agujero y envia resultado
 def segmentacion_agujeros(bin_image):
-    #Definicion de semillas
-    up = (120,70)
-    down = (120,250)
-    right = (200,160)  
-    left = (40,160)
-    mid = (120,160)
-    #Definicion de colores para cada agujero
-    up_color = [255,0,0]
-    down_color = [255,128,0]
-    right_color = [0,204,0]
-    left_color = [0,128,255]
-    mid_color = [204,0,102]
-    seed_colors = {'up':up_color,'down':down_color,'right':right_color,'left':left_color,'mid':mid_color}
-    #Se define la imagend de salida donde se guardaran los agujeros encontrados
     out_img = np.zeros(shape=(320,240,3), dtype=np.uint8)
-    #Se realiza el crecimiento de regiones
-    out_img = region_growth(up,seed_colors['up'],bin_image,out_img)
-    out_img = region_growth(down,seed_colors['down'],bin_image,out_img)
-    out_img = region_growth(right,seed_colors['right'],bin_image,out_img)
-    out_img = region_growth(left,seed_colors['left'],bin_image,out_img)
-    out_img = region_growth(mid,seed_colors['mid'],bin_image,out_img)
-    res_agujeros = agujeros(out_img,seed_colors)
+    for j in range(len(SEEDS)):
+        out_img = region_growth(SEEDS[j],SEED_COLORS[j],bin_image,out_img)
+    res_agujeros = agujeros(out_img)
     return res_agujeros
 
 def res_report(res_cromatic,res_agujeros):
     #Resultado cromatico
     cromatic_report = ' es no cromatico y '
     if res_cromatic == True:
-            cromatic_report = ' es cromatico y '
+            cromatic_report = ' es    cromatico y '
     #Resultado de los agujeros
-    agujeros_report = 'se encontraron agujeros en las siguientes posiciones:'
+    agujeros_report = 'hay perforaciones en las posiciones:'
     if np.array_equal(res_agujeros,[False,False,False,False,False]):
         agujeros_report = 'no se encontraron agujeros.'
         report = cromatic_report + agujeros_report
         return report
-    if res_agujeros[0]:
-        agujeros_report = agujeros_report + ' -Superior'
-    if res_agujeros[1]:
-        agujeros_report = agujeros_report + ' -Inferior'
-    if res_agujeros[2]:
-        agujeros_report = agujeros_report + ' -Lateral derecha'
-    if res_agujeros[3]:
-        agujeros_report = agujeros_report + ' -Lateral izquierda'
-    if res_agujeros[4]:
-        agujeros_report = agujeros_report + ' -Central'
+    if res_agujeros[0]: agujeros_report = agujeros_report + ' Superior'
+    else: agujeros_report = agujeros_report + '         '
+    if res_agujeros[1]: agujeros_report = agujeros_report + ' Inferior'
+    else: agujeros_report = agujeros_report + '         '
+    if res_agujeros[2]: agujeros_report = agujeros_report + ' Derecha'
+    else: agujeros_report = agujeros_report + '        '
+    if res_agujeros[3]: agujeros_report = agujeros_report + ' Izquierda'
+    else: agujeros_report = agujeros_report + '          '
+    if res_agujeros[4]: agujeros_report = agujeros_report + ' Central'
     report = cromatic_report + agujeros_report
     return report
 
+# Escala y Recorta la imagen a 320x240
 def edit_image(image,gray=False):
     if gray == True:
         y,x = image.shape
@@ -173,6 +173,7 @@ def edit_image(image,gray=False):
     resized = resize(cropped,(320,240),preserve_range=True).astype(int)
     return resized
 
+# Ejecuta las funciones secuencialmente
 def proyecto(image,bin_image):
     image = edit_image(image)
     bin_image = edit_image(bin_image,True)
@@ -180,6 +181,8 @@ def proyecto(image,bin_image):
     res_agujeros = segmentacion_agujeros(bin_image)
     return (res_report(res_cromatic,res_agujeros))
 
+# Toma las imagenes de la carpeta "Objetos_por_analizar"
+# Para cada imagen ejecuta el proceso "proyecto"
 def main():
     try:
         os.remove("report_file.txt")
